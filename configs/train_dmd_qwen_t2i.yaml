@@ -1,0 +1,90 @@
+job_name: spc_dmd_qwen_t2i_demo
+run_name: spc_dmd_qwen_t2i_demo
+train_lora_only: true
+# Local Qwen-Image base weights (download from Hugging Face or point to your cache)
+pretrained_model_name_or_path: Qwen/Qwen-Image
+model_output_dir: "./outputs/spc_dmd_demo"
+logging_dir: logs
+report_to: tensorboard
+hub_token: null
+mixed_precision: bf16
+allow_tf32: true
+scale_lr: false
+seed: 42
+bnb_quantization_config_path: null
+offload: false
+resume_from_checkpoint: ""
+max_sequence_length: 768
+negative_prompt: ""
+tracker_name: spc_dmd_qwen_t2i
+dataloader:
+  num_workers: 2
+  shuffle: true
+  pin_memory: true
+  drop_last: true
+  local_shuffle_seed: 42
+dataset_config:
+  data_path:
+    - data/sample/
+  max_pixels: 1048576
+  h_divisor: 32
+  w_divisor: 32
+  default_resolution: 512
+model_config:
+  trainable_models: ["dit"]
+  use_gradient_checkpointing: true
+  max_sequence_length: 768
+train_config:
+  batch_size: 1
+  weight_decay: 0
+  learning_rate: 2.0e-5
+  learning_rate_fake_score: 1.0e-4
+  adam_beta1: 0.0
+  adam_beta2: 0.999
+  adam_weight_decay: 0.01
+  adam_epsilon: 1.0e-08
+  warmup_steps: 0
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+  max_train_steps: 20
+  checkpointing_steps: 10
+  checkpoints_total_limit: 3
+  lr_scheduler: cosine
+  lr_num_cycles: 1
+  lr_power: 1.0
+  student_lora_init_method: scratch
+  student_lora:
+    lora_r: 64
+    lora_alpha: 64
+  fake_lora_init_method: scratch
+  fake_lora:
+    lora_r: 256
+    lora_alpha: 256
+  teacher_lora_init_method: lightning
+  resolutions:
+    - [512, 512]
+distillation_config:
+  method: DMD_t2i
+  train_k_step_generator_every_n_steps: 1
+  rcgm_step: 1
+  ucgm_step: 1
+  K_step: 1
+  eta: 1
+  reg_lambda: 0
+  LIPS_lambda: 1
+  LIPS_eps: 0.01
+  LIPS_sample: Uniform
+  max_loss_fake: 2.0
+  cfg: 4.0
+  diversity_lambda: 0
+eval_config:
+  every_steps: 10
+  num_inference_steps: 1
+  seed: 1337
+  validation_prompts:
+    - prompt: A simple red circle on white background, flat illustration.
+    - prompt: A blue square on gray background, minimal design.
+wandb:
+  enable: false
+  project: spc_dmd
+  run_name: spc_dmd_qwen_t2i
