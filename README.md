@@ -1,10 +1,10 @@
-# SPC — Qwen-Image 文生图 DMD 蒸馏
+# SPC: Stabilizing Multi-Step Diffusion Distillation with Student Perturbation Consistency 
 
-基于 [Qwen-Image](https://huggingface.co/Qwen/Qwen-Image) 的少步文生图（T2I）蒸馏训练代码。使用 Distribution Matching Distillation（DMD）配合 LoRA：student 为 K 步生成器，fake score 与 teacher（Lightning LoRA）提供匹配信号。训练基于 [Accelerate](https://huggingface.co/docs/accelerate)，数据为本地 WebDataset tar。
+Training code for SPC: Stabilizing Multi-Step Diffusion Distillation with Student Perturbation Consistency. The method uses Distribution Matching Distillation (DMD) with LoRA: the student is a K-step generator, while the fake score and teacher (Lightning LoRA) provide the matching signal. Training is based on [Accelerate](https://huggingface.co/docs/accelerate), and the data is stored locally in WebDataset tar files.
 
-训练时在 `t=0` 侧采样潜变量 `x0`，通过 flow matching 的 `add_noise(..., t1=0, t2=τ)` 构造各时间步状态；生成器在最大噪声时刻（与配置中的 `K_step` 一致）起算。
+During training, latent variables `x0` are sampled on the `t=0` side. Flow matching's `add_noise(..., t1=0, t2=τ)` is used to construct states at each timestep. The generator starts from the maximum-noise timestep, consistent with the configured `K_step`.
 
-## 环境
+## Environment
 
 ```bash
 cd /path/to/SPC
@@ -13,61 +13,61 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-建议使用 CUDA GPU。全分辨率 1024 训练 Qwen-Image + LoRA 通常需要较大显存；仓库内 demo 配置使用 512 分辨率与较少步数，便于快速试跑。
+A CUDA GPU is recommended. Full-resolution 1024 training of Qwen-Image + LoRA typically requires substantial GPU memory. The demo configuration in this repository uses 512 resolution and fewer steps for quick testing.
 
-## 数据
+## Data
 
-默认使用仓库内小样例 WebDataset（4 条 prompt + 512 图像）：
+By default, the repository uses a small WebDataset sample dataset (4 prompts + 512-resolution images):
 
 ```bash
-python3 scripts/make_sample_dataset.py   # 若已有 data/sample/sample-000000.tar 可跳过
+python3 scripts/make_sample_dataset.py   # Skip if data/sample/sample-000000.tar already exists
 ```
 
-自有数据请整理为 WebDataset tar：每条样本包含 `{key}.json`（字段 `prompt`）与可选 `{key}.image.png`，并在 `configs/train_dmd_qwen_t2i.yaml` 的 `dataset_config.data_path` 中指向 tar 目录或 glob 路径。
+For custom data, organize the dataset as WebDataset tar files. Each sample should contain `{key}.json` (with a `prompt` field) and an optional `{key}.image.png`. Set `dataset_config.data_path` in `configs/train_dmd_qwen_t2i.yaml` to point to the tar directory or a glob pattern.
 
-## 模型配置
+## Model Configuration
 
-在 yaml 中设置基座权重：
+Set the base model weights in the YAML configuration:
 
 ```yaml
-pretrained_model_name_or_path: Qwen/Qwen-Image   # 或本地目录
+pretrained_model_name_or_path: Qwen/Qwen-Image   # Or a local directory
 ```
 
-- **student / fake**：默认从 scratch 初始化 LoRA（demo 为 `r=64` / `r=256`）。
-- **teacher**：默认从 Hugging Face 拉取 [Qwen-Image-Lightning](https://huggingface.co/lightx2v/Qwen-Image-Lightning) 4-step LoRA，仅作教师推理，不训练 backbone。
+- **student / fake**: By default, the LoRA adapters are initialized from scratch (the demo uses `r=64` / `r=256`).
+- **teacher**: By default, the 4-step [Qwen-Image-Lightning](https://huggingface.co/lightx2v/Qwen-Image-Lightning) LoRA is downloaded from Hugging Face and used only for teacher inference; the backbone is not trained.
 
-## 训练
+## Training
 
 ```bash
 chmod +x scripts/train.sh
 ./scripts/train.sh configs/train_dmd_qwen_t2i.yaml
 ```
 
-或：
+Or:
 
 ```bash
 export PYTHONPATH="$(pwd):$PYTHONPATH"
 python3 -m spc.train_dmd_qwen_t2i configs/train_dmd_qwen_t2i.yaml
 ```
 
-Demo 配置中的常用超参：
+Common hyperparameters in the demo configuration:
 
-| 项 | 默认值 |
+| Parameter | Default |
 |----|--------|
 | `batch_size` | 1 |
 | `gradient_accumulation_steps` | 4 |
 | `learning_rate` / `learning_rate_fake_score` | 2e-5 / 1e-4 |
 | `K_step` | 1 |
 | `LIPS_lambda` | 1 |
-| `max_train_steps` | 20（试跑；正式实验请增大） |
+| `max_train_steps` | 20 (for testing; increase for formal experiments) |
 
-日志默认写入 TensorBoard（`report_to: tensorboard`），权重目录为 `outputs/spc_dmd_demo`。保存格式为 `checkpoint-{step}/`，在 `train_lora_only: true` 时会写入 `adapter_student` 与 `adapter_fake`。
+By default, logs are written to TensorBoard (`report_to: tensorboard`), and checkpoints are saved under `outputs/spc_dmd_demo`. The save format is `checkpoint-{step}/`. When `train_lora_only: true`, the checkpoint contains `adapter_student` and `adapter_fake`.
 
-使用 Weights & Biases 时：在配置里设置 `report_to: wandb`、`wandb.enable: true`，并设置环境变量 `WANDB_API_KEY`。
+To use Weights & Biases, set `report_to: wandb` and `wandb.enable: true` in the configuration, and set the `WANDB_API_KEY` environment variable.
 
-## 目录结构
+## Directory Structure
 
-```
+```text
 SPC/
   configs/train_dmd_qwen_t2i.yaml
   data/sample/
